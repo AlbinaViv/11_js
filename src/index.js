@@ -7,9 +7,8 @@ const formEl = document.querySelector('.search-form');
 const divEL = document.querySelector('.gallery');
 const loadMore = document.querySelector('.selector');
 
-let hits = 1;
+let page;
 let currentQuery = '';
-let firstSearch = true;
 
 loadMore.classList.replace('load-more', 'visually-hidden');
 
@@ -23,13 +22,14 @@ const lightbox = new SimpleLightbox('.gallery a', {
 
 // lightbox.refresh();
 
-async function fetchImages(q, hits) {
+async function fetchImages(q, page) {
   try {
     const res = await axios.get(BASE_URL, {
       params: {
         key: '41146356-b4088fdd71d4692a67ba75dd6',
         q,
-        hits,
+        page,
+        per_page: 40,
         image_type: 'photo',
         orientation: 'horizontal',
         safesearch: true,
@@ -49,6 +49,8 @@ formEl.addEventListener('submit', handleSubmit);
 
 function handleSubmit(e) {
   e.preventDefault();
+  page = 1;
+  Notiflix.Loading.circle('Searching...');
 
   divEL.innerHTML = '';
 
@@ -56,10 +58,13 @@ function handleSubmit(e) {
   console.log(currentQuery);
   //   loadMore.setAttribute('visually-hidden', false);
 
-  fetchImages(currentQuery, hits)
+  fetchImages(currentQuery, page)
     .then(data => {
       markupImages(data);
+      Notiflix.Loading.remove();
+      Notiflix.Notify.success(`Hooray! We found ${data.totalHits} images.`);
       loadMore.classList.replace('visually-hidden', 'load-more');
+      formEl.reset();
     })
     .catch(error => {
       Notiflix.Notify.failure(
@@ -67,10 +72,7 @@ function handleSubmit(e) {
       );
       //   selectEl.setAttribute("hidden", true);
     })
-    .finally(() => {
-      //   loadMore.classList.replace('visually-hidden', 'load-more');
-      //   loaderEl.classList.add("is-hidden");
-    });
+    .finally(() => {});
 }
 
 function markupImages(data) {
@@ -96,21 +98,23 @@ function markupImages(data) {
 loadMore.addEventListener('click', handleClick);
 
 function handleClick(e) {
-  hits += 1;
-  console.log(hits);
+  page += 1;
+  Notiflix.Loading.hourglass('Download...');
 
-  fetchImages(currentQuery).then(data => {
+  fetchImages(currentQuery, page).then(data => {
+    const maxPages = Math.ceil(data.totalHits / 40);
+
     if (data.totalHits === 0 || currentQuery.trim() === '') {
       Notify.warning('Please, fill the main field');
       return;
     }
     markupImages(data);
-    Notiflix.Notify.success(`Hooray! We found ${data.totalHits} images.`);
     lightbox.refresh();
 
-    if (data.hits >= data.totalHits) {
+    if (page === maxPages) {
       loadMore.classList.replace('load-more', 'visually-hidden');
     }
+    Notiflix.Loading.remove();
 
     console.log(data.hits);
 
